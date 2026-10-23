@@ -1,0 +1,31 @@
+# Sample workflow: run DocsDrift CI on this repository's own Markdown docs.
+#
+# Least-privilege: `contents: read` only, no secrets are defined or needed.
+# On pull_request events DocsDrift refuses to execute code blocks (untrusted
+# code) and only validates links; on push to main it also runs the marked
+# examples. DocsDrift additionally scrubs the child-process environment, so
+# even if secrets were added to this workflow they would not leak into
+# executed examples.
+
+name: docsdrift
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Check docs for drift
+        # Scan the repo README (examples/ intentionally contains broken
+        # fixtures used by the demo). Point this at your docs/ tree instead.
+        run: python -m docsdrift README.md --config docsdrift.example.json

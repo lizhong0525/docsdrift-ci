@@ -1,0 +1,9 @@
+{
+  "exclude": ["node_modules/**", "vendor/**"],
+  "runtimes": {
+    "python": ["python", "-c", "{code}"],
+    "bash": ["bash"]
+  },
+  "timeout_seconds": 10,
+  "allow_shell": false
+}
