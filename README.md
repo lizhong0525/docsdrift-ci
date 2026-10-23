@@ -123,7 +123,7 @@ steps:
 ## Development
 
 ```bash
-python -m pytest -q   # 38 tests, pure stdlib, no network
+python -m pytest -q   # 39 tests, pure stdlib, no network
 ```
 
 ## License

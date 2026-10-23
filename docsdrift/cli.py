@@ -34,6 +34,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Reports may contain arbitrary output from executed examples (including
+    # undecodable bytes turned into U+FFFD). Never let console encoding turn a
+    # report into a UnicodeEncodeError traceback.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="replace")
     args = build_parser().parse_args(argv)
     try:
         config = load_config(args.config)

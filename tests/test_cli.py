@@ -87,6 +87,32 @@ class TestCli(unittest.TestCase):
         self.assertEqual(code, 1, out)
         self.assertIn("outside the scanned root", out)
 
+    def test_narrow_console_encoding_does_not_crash(self):
+        # A failing block whose output is not valid UTF-8 becomes U+FFFD in the
+        # report; printing that to a legacy (e.g. cp936) console must degrade
+        # to replacement characters, not die with UnicodeEncodeError.
+        import sys
+        import tempfile
+
+        root = tempfile.mkdtemp(prefix="docsdrift-cli-")
+        with open(os.path.join(root, "x.md"), "w", encoding="utf-8") as f:
+            f.write(
+                "# X\n\n```python docsdrift:run\n"
+                "import sys\n"
+                "sys.stdout.buffer.write(b'\\xff\\xff')\n"
+                "sys.exit(1)\n```\n"
+            )
+        buf = io.TextIOWrapper(io.BytesIO(), encoding="cp936")
+        old = sys.stdout
+        try:
+            sys.stdout = buf
+            code = main([root])
+        finally:
+            sys.stdout = old
+        self.assertEqual(code, 1)
+        buf.flush()
+        self.assertIn(b"DRIFT DETECTED", buf.buffer.getvalue())
+
     def test_pr_event_blocks_execution(self):
         os.environ["GITHUB_EVENT_NAME"] = "pull_request"
         try:
