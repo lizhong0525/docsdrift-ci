@@ -75,7 +75,8 @@ def run_block(
             argv,
             input=stdin,
             capture_output=True,
-            text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=limit,
             env=safe_env(),
         )

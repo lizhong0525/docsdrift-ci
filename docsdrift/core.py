@@ -30,6 +30,13 @@ class ScanReport:
         return not self.link_issues and not self.failed_blocks and not self.read_errors
 
 
+def _try_relpath(path: str, start: str) -> str | None:
+    try:
+        return os.path.relpath(path, start)
+    except ValueError:  # different drives on Windows
+        return None
+
+
 def find_markdown_files(paths: list[str], config: Config) -> list[str]:
     found: list[str] = []
     for p in paths:
@@ -40,25 +47,47 @@ def find_markdown_files(paths: list[str], config: Config) -> list[str]:
                 found.append(os.path.abspath(p))
             continue
         for dirpath, dirnames, filenames in os.walk(p):
-            rel_dir = os.path.relpath(dirpath, config.base_dir)
-            dirnames[:] = [
-                d for d in dirnames
-                if not config.is_excluded(os.path.join(rel_dir, d)) and not d.startswith(".")
-            ]
+            rel_dir = _try_relpath(dirpath, config.base_dir)
+            if rel_dir is not None:
+                dirnames[:] = [
+                    d for d in dirnames
+                    if not config.is_excluded(os.path.join(rel_dir, d)) and not d.startswith(".")
+                ]
+            else:
+                dirnames[:] = [d for d in dirnames if not d.startswith(".")]
             for name in filenames:
                 if not name.lower().endswith((".md", ".markdown")):
                     continue
                 full = os.path.join(dirpath, name)
-                if config.is_excluded(os.path.relpath(full, config.base_dir)):
+                rel = _try_relpath(full, config.base_dir)
+                if rel is not None and config.is_excluded(rel):
                     continue
                 found.append(os.path.abspath(full))
     return sorted(set(found))
+
+
+def _containing_root(path: str, roots: list[str]) -> str:
+    """The scan root a file belongs to: the scanned directory it was found under
+    (or the parent directory of an explicitly scanned file)."""
+    norm = os.path.normcase(os.path.abspath(path))
+    for root in roots:
+        try:
+            if os.path.commonpath([norm, os.path.normcase(root)]) == os.path.normcase(root):
+                return root
+        except ValueError:  # different drives on Windows
+            continue
+    return os.path.dirname(os.path.abspath(path))
 
 
 def scan(paths: list[str], config: Config, execute: bool = True,
          allow_shell: bool = False, trust_pr: bool = False) -> ScanReport:
     report = ScanReport()
     files = find_markdown_files(paths, config)
+    roots = [
+        os.path.abspath(p) if os.path.isdir(p)
+        else os.path.dirname(os.path.abspath(p))
+        for p in paths
+    ]
     anchor_cache: dict[str, set[str]] = {}
 
     if execute and pr_execution_blocked(trust_pr=trust_pr):
@@ -79,7 +108,8 @@ def scan(paths: list[str], config: Config, execute: bool = True,
 
         doc = parse_document(path, text)
         report.links_checked += len(doc.links)
-        report.link_issues.extend(check_document_links(doc, config.base_dir, anchor_cache))
+        root = _containing_root(path, roots)
+        report.link_issues.extend(check_document_links(doc, root, anchor_cache))
 
         for block in doc.blocks:
             if not block.runnable:

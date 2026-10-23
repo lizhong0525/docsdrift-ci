@@ -58,6 +58,35 @@ class TestCli(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertIn("docsdrift:", err)
 
+    def test_scan_directory_outside_cwd(self):
+        # Links are validated against the scanned tree, not the process cwd:
+        # sibling links in a directory outside cwd must not be flagged as
+        # escaping the root.
+        import tempfile
+
+        root = tempfile.mkdtemp(prefix="docsdrift-cli-")
+        with open(os.path.join(root, "a.md"), "w", encoding="utf-8") as f:
+            f.write("# A\n\nSee [b](b.md).\n")
+        with open(os.path.join(root, "b.md"), "w", encoding="utf-8") as f:
+            f.write("# B\n")
+        code, out, _ = run_cli(root)
+        self.assertEqual(code, 0, out)
+        self.assertIn("RESULT: OK", out)
+
+    def test_link_escaping_scanned_directory_is_flagged(self):
+        import tempfile
+
+        root = tempfile.mkdtemp(prefix="docsdrift-cli-")
+        docs = os.path.join(root, "docs")
+        os.makedirs(docs)
+        with open(os.path.join(docs, "a.md"), "w", encoding="utf-8") as f:
+            f.write("# A\n\nSee [secret](../secret.md).\n")
+        with open(os.path.join(root, "secret.md"), "w", encoding="utf-8") as f:
+            f.write("# S\n")
+        code, out, _ = run_cli(docs)
+        self.assertEqual(code, 1, out)
+        self.assertIn("outside the scanned root", out)
+
     def test_pr_event_blocks_execution(self):
         os.environ["GITHUB_EVENT_NAME"] = "pull_request"
         try:
