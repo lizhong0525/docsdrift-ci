@@ -6,7 +6,14 @@ DocsDrift does **not** try to judge whether your prose is correct. It guarantees
 
 ## Quickstart
 
+Requires Python 3.10+ (standard library only — nothing to install). DocsDrift
+runs straight from a clone, so run it from the repository root (or add the repo
+to `PYTHONPATH`); `python -m docsdrift` will not resolve from any other
+directory:
+
 ```bash
+git clone https://github.com/<you>/docsdrift-ci.git
+cd docsdrift-ci
 python -m docsdrift path/to/docs
 ```
 
@@ -116,7 +123,7 @@ steps:
 ## Development
 
 ```bash
-python -m pytest -q   # 35 tests, pure stdlib, no network
+python -m pytest -q   # 36 tests, pure stdlib, no network
 ```
 
 ## License
